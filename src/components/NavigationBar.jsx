@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux'
 export default function NavigationBar() {
   const location = useLocation()
   const selectedProgram = useSelector((state) => state.program.selectedProgram)
-  
+
   const navItems = [
     { path: '/', label: 'Home', icon: <House /> },
     { path: selectedProgram ? `/programs/${selectedProgram}` : '/onboarding', label: 'Programs', icon: <Dumbbell />  },
@@ -18,7 +18,7 @@ export default function NavigationBar() {
     <div className='fixed bottom-0 left-0 right-0 w-full bg-[#0a0a0a]'>
       <hr className='border-[#151A21]' />
       <div className='w-full md:w-[50%] mx-auto p-4'>
-        <div className='flex justify-between items-center'>
+        <div className='flex justify-between items-center relative'>
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -31,6 +31,7 @@ export default function NavigationBar() {
               <span className='text-sm font-medium'>{item.label}</span>
             </Link>
           ))}
+      
         </div>
       </div>
     </div>

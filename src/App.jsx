@@ -12,7 +12,7 @@ import Onboarding from './page/Onboarding'
 
 export default function App() {
   return (
-    <div className='mt-4 w-[50%] mx-auto p-10 pb-24'>
+    <div className='mt-4 w-full md:w-[50%] mx-auto p-4 md:p-10 pb-24'>
         <Navbar />
 <Routes>
   <Route path="/onboarding" element={<Onboarding />} />

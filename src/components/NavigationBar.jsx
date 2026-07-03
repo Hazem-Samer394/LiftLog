@@ -17,7 +17,7 @@ export default function NavigationBar() {
   return (
     <div className='fixed bottom-0 left-0 right-0 w-full bg-[#0a0a0a]'>
       <hr className='border-[#151A21]' />
-      <div className='w-[50%] mx-auto p-4'>
+      <div className='w-full md:w-[50%] mx-auto p-4'>
         <div className='flex justify-between items-center'>
           {navItems.map((item) => (
             <Link

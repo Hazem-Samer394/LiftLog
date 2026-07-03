@@ -24,33 +24,33 @@ export default function Profile() {
 
   return (
  <div className="space-y-4 p-4">
-      <h2 className="text-2xl font-bold text-gray-100">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-100">
         Profile
       </h2>
 
-      <div className="space-y-4 rounded-2xl bg-[#141414] p-5">
+      <div className="space-y-4 rounded-2xl bg-[#141414] p-4 md:p-5">
         <div className="flex items-center gap-3 border-b border-gray-800 pb-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20">
             <User className="h-6 w-6 text-green-400" />
           </div>
 
           <div>
-            <h3 className="font-semibold text-white">
+            <h3 className="font-semibold text-white text-base md:text-lg">
               Athlete
             </h3>
 
-            <p className="text-xs text-gray-500">
+            <p className="text-xs md:text-sm text-gray-500">
               {currentProgram ? currentProgram.name : 'No program selected'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-400">
+          <span className="text-sm md:text-base text-gray-400">
             Training Program
           </span>
 
-          <button 
+          <button
             onClick={() => setShowProgramSelector(!showProgramSelector)}
             className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm font-medium transition hover:bg-gray-700"
           >
@@ -79,7 +79,7 @@ export default function Profile() {
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-400">
+          <span className="text-sm md:text-base text-gray-400">
             Weight Unit
           </span>
 
@@ -89,16 +89,16 @@ export default function Profile() {
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-400">
+          <span className="text-sm md:text-base text-gray-400">
             Total Workouts
           </span>
 
-          <span className="font-semibold text-green-400">
+          <span className="font-semibold text-green-400 text-base md:text-lg">
             {workouts.length}
           </span>
         </div>
 
-        <button 
+        <button
           onClick={handleResetOnboarding}
           className="mt-2 w-full rounded-xl border border-gray-700 py-3 text-sm font-medium text-gray-400 transition hover:bg-gray-800"
         >

@@ -53,13 +53,13 @@ export default function ProgramDetail() {
           <ArrowLeft />
         </Link>
 
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-xl md:text-2xl font-bold text-white">
           {program.name}
         </h1>
       </div>
 
       <div className="mt-6">
-        <p className="text-lg text-[#6B7280]">
+        <p className="text-base md:text-lg text-[#6B7280]">
           Select workout day
         </p>
 
@@ -72,12 +72,12 @@ export default function ProgramDetail() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-white capitalize">
+                  <h2 className="text-base md:text-lg font-semibold text-white capitalize">
                     {muscles.join(' & ')}
                   </h2>
                 </div>
 
-                <span className="text-sm text-[#6B7280]">
+                <span className="text-xs md:text-sm text-[#6B7280]">
                   {muscles.length} Muscle Groups
                 </span>
               </div>

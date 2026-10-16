@@ -13,7 +13,7 @@ export default function HomePage() {
 
   const [inProgress, setInProgress] = useState(null);
 
-  // تحقق من وجود تمرين قيد التنفيذ
+  // Check for in-progress workout
   useEffect(() => {
     const saved = localStorage.getItem("inProgressWorkout");
     if (saved) {
@@ -60,7 +60,7 @@ export default function HomePage() {
     setInProgress(null);
   };
 
-  // حساب ملخص كل تمرين
+  // Calculate workout summary
   const getWorkoutSummary = (workout) => {
     const totalExercises = workout.exercises?.length || 0;
     const totalSets = workout.exercises?.reduce(
@@ -72,7 +72,7 @@ export default function HomePage() {
 
   return (
     <div className="mt-6 rounded-2xl">
-      {/* الهيدر */}
+      {/* Header */}
       <div className="bg-[#141414] p-4 md:p-6 rounded-2xl gap-1 flex flex-col">
         <p className="text-[#6B7280] text-sm md:text-base">Ready to train?</p>
         <h1 className="text-white text-xl md:text-2xl font-bold">
@@ -83,7 +83,7 @@ export default function HomePage() {
         </span>
       </div>
 
-      {/* بطاقة "Continue" لو فيه تمرين قيد التنفيذ */}
+      {/* Continue card if workout in progress */}
       {inProgress && (
         <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/30">
           <div className="flex items-start justify-between gap-3 mb-3">
@@ -91,19 +91,21 @@ export default function HomePage() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <p className="text-green-400 text-xs font-semibold uppercase tracking-wide">
-                  تمرين قيد التنفيذ
+                  Workout in progress
                 </p>
               </div>
               <h3 className="text-white font-bold text-base md:text-lg capitalize truncate">
                 {inProgress.dayName}
               </h3>
-              <p className="text-[#6B7280] text-xs mt-0.5">ابدأ من حيث توقفت</p>
+              <p className="text-[#6B7280] text-xs mt-0.5">
+                Pick up where you left off
+              </p>
             </div>
 
             <button
               onClick={handleDiscardInProgress}
               className="text-[#6B7280] hover:text-red-400 text-xs px-2 py-1 rounded transition flex-shrink-0"
-              title="إلغاء التمرين"
+              title="Discard workout"
             >
               ✕
             </button>
@@ -113,12 +115,12 @@ export default function HomePage() {
             onClick={handleContinue}
             className="w-full bg-green-500 text-black font-semibold py-3 rounded-xl hover:bg-green-400 active:scale-95 transition text-sm md:text-base"
           >
-            ▶ استكمال التمرين
+            ▶ Continue Workout
           </button>
         </div>
       )}
 
-      {/* زر Quick Start */}
+      {/* Quick Start button */}
       {!inProgress && (
         <div className="mt-5">
           <button
@@ -130,7 +132,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* آخر التمارين */}
+      {/* Recent Workouts */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-4">
           <span className="text-[#6B7280] text-lg md:text-xl font-medium">
@@ -186,11 +188,11 @@ export default function HomePage() {
                       <div className="flex items-center gap-2 text-[#6B7280] text-xs pl-10">
                         <span className="truncate">{programName}</span>
                         <span className="text-gray-700">•</span>
-                        <span>{totalExercises} تمارين</span>
+                        <span>{totalExercises} exercises</span>
                         {totalSets > 0 && (
                           <>
                             <span className="text-gray-700">•</span>
-                            <span>{totalSets} مجموعة</span>
+                            <span>{totalSets} sets</span>
                           </>
                         )}
                       </div>

@@ -141,7 +141,7 @@ export default function HomePage() {
               onClick={() => navigate("/history")}
               className="text-green-500 text-xs md:text-sm font-semibold hover:text-green-400 transition"
             >
-              عرض الكل ←
+              View All →
             </button>
           )}
         </div>
@@ -151,10 +151,10 @@ export default function HomePage() {
             <div className="text-center py-8 bg-[#141414] rounded-2xl border border-gray-800/50">
               <div className="text-4xl mb-2">🏋️</div>
               <p className="text-[#6B7280] text-sm md:text-base">
-                مفيش تمارين لسه
+                No workouts yet
               </p>
               <p className="text-[#4B5563] text-xs mt-1">
-                ابدأ أول تمرين ليك دلوقتي
+                Start your first workout now
               </p>
             </div>
           ) : (

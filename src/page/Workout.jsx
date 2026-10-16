@@ -260,8 +260,8 @@ function WorkoutSession({ programId, day }) {
       {!timerRunning && seconds === 0 && (
         <div className="text-center py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl">
           <p className="text-sm text-gray-400">
-            اضغط على <span className="text-green-400 font-semibold">▶</span>{" "}
-            لبدء المؤقت
+            Tap <span className="text-green-400 font-semibold">▶</span> to start
+            the timer
           </p>
         </div>
       )}

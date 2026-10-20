@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { programs } from "../data/programs";
 import { exercises } from "../data/exercises";
@@ -6,20 +6,37 @@ import { useDispatch, useSelector } from "react-redux";
 import { addWorkout } from "../features/history";
 import { Dumbbell, RefreshCcwDot } from "lucide-react";
 
+function ExerciseImage({ src, alt }) {
+  const [error, setError] = useState(false);
+  if (error) {
+    return (
+      <div className="h-full w-full bg-[#222] flex flex-col items-center justify-center text-gray-500 p-4">
+        <span className="text-4xl">🏋️</span>
+        <p className="mt-2 text-sm text-center">{alt}</p>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-full w-full object-cover"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 export default function Workout() {
   const { program: programId, day } = useParams();
   const navigate = useNavigate();
 
-  // لو مفيش params → حوّل تلقائياً لأول برنامج وأول يوم
   useEffect(() => {
     if (!programId || !day) {
       const firstProgramKey = Object.keys(programs)[0];
       if (!firstProgramKey) return;
-
       const firstProgram = programs[firstProgramKey];
       const firstDayKey = Object.keys(firstProgram.days)[0];
       if (!firstDayKey) return;
-
       navigate(
         `/workout/${firstProgramKey}/${encodeURIComponent(firstDayKey)}`,
         { replace: true },
@@ -38,9 +55,6 @@ export default function Workout() {
   return <WorkoutSession programId={programId} day={day} />;
 }
 
-/* ============================================================
-   جلسة التمرين
-   ============================================================ */
 function WorkoutSession({ programId, day }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -48,12 +62,10 @@ function WorkoutSession({ programId, day }) {
   const program = programs[programId];
   const workouts = useSelector((state) => state.history.workouts);
 
-  // قائمة التمارين (بدون تكرار)
   const workoutExercises = useMemo(() => {
     if (!program || !program.days?.[decodedDay]) return [];
     const muscleGroups = program.days[decodedDay];
     const raw = muscleGroups.flatMap((mg) => exercises[mg] || []);
-
     const seen = new Set();
     const unique = [];
     for (const ex of raw) {
@@ -65,21 +77,20 @@ function WorkoutSession({ programId, day }) {
     return unique;
   }, [program, decodedDay]);
 
-  /* ---------- كل الـ Hooks في الأول ---------- */
   const [seconds, setSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [exerciseData, setExerciseData] = useState({});
   const [editingSet, setEditingSet] = useState(null);
 
-  // تهيئة عند فتح التمرين
+  // تهيئة
   useEffect(() => {
     const initial = {};
     workoutExercises.forEach((ex) => {
       initial[ex.id] = {
         sets: Array.from({ length: 3 }, () => ({
-          weight: 0,
-          reps: 10,
+          weight: "",
+          reps: "",
           done: false,
         })),
       };
@@ -89,7 +100,7 @@ function WorkoutSession({ programId, day }) {
     setTimerRunning(false);
     setShowSuccess(false);
     setEditingSet(null);
-  }, [programId, decodedDay, workoutExercises]);
+  }, [programId, decodedDay]);
 
   // التايمر
   useEffect(() => {
@@ -109,31 +120,24 @@ function WorkoutSession({ programId, day }) {
   const minutes = Math.floor(seconds / 60);
   const sec = seconds % 60;
 
-  /* ---------- التحكم في المجموعات ---------- */
   const toggleSetDone = (exerciseId, setIndex) => {
     setExerciseData((prev) => {
       const sets = prev[exerciseId]?.sets || [];
-      const newSets = sets.map((s, i) =>
-        i === setIndex ? { ...s, done: !s.done } : s,
-      );
-      return { ...prev, [exerciseId]: { sets: newSets } };
-    });
-  };
-
-  const updateSetField = (exerciseId, setIndex, field, value) => {
-    setExerciseData((prev) => {
-      const sets = prev[exerciseId]?.sets || [];
-      const newSets = sets.map((s, i) =>
-        i === setIndex ? { ...s, [field]: value } : s,
-      );
-      return { ...prev, [exerciseId]: { sets: newSets } };
+      return {
+        ...prev,
+        [exerciseId]: {
+          sets: sets.map((s, i) =>
+            i === setIndex ? { ...s, done: !s.done } : s,
+          ),
+        },
+      };
     });
   };
 
   const addSet = (exerciseId) => {
     setExerciseData((prev) => {
       const sets = prev[exerciseId]?.sets || [];
-      const last = sets[sets.length - 1] || { weight: 0, reps: 10 };
+      const last = sets[sets.length - 1] || { weight: "", reps: "" };
       return {
         ...prev,
         [exerciseId]: {
@@ -150,15 +154,34 @@ function WorkoutSession({ programId, day }) {
     setExerciseData((prev) => {
       const sets = prev[exerciseId]?.sets || [];
       if (sets.length <= 1) return prev;
-      const newSets = sets.filter((_, i) => i !== setIndex);
-      return { ...prev, [exerciseId]: { sets: newSets } };
+      return {
+        ...prev,
+        [exerciseId]: { sets: sets.filter((_, i) => i !== setIndex) },
+      };
     });
   };
 
-  /* ---------- الحفظ ---------- */
+  const updateSetFromModal = (exerciseId, setIndex, weight, reps) => {
+    setExerciseData((prev) => {
+      const sets = prev[exerciseId]?.sets || [];
+      return {
+        ...prev,
+        [exerciseId]: {
+          sets: sets.map((s, i) =>
+            i === setIndex ? { ...s, weight, reps } : s,
+          ),
+        },
+      };
+    });
+  };
+
   const handleSave = () => {
     const exercisesWithDetails = workoutExercises.map((exercise) => {
-      const sets = exerciseData[exercise.id]?.sets || [];
+      const sets = (exerciseData[exercise.id]?.sets || []).map((s) => ({
+        ...s,
+        weight: Number(s.weight) || 0,
+        reps: Number(s.reps) || 0,
+      }));
       return {
         ...exercise,
         sets,
@@ -168,10 +191,8 @@ function WorkoutSession({ programId, day }) {
     });
 
     const now = new Date();
-    const dayNum = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
-    const dateStr = `${dayNum}/${month}/${year}`;
+    // بنسجل التاريخ مع الوقت عشان نعرف نفرق بين التمارين
+    const dateStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
     dispatch(
       addWorkout({
@@ -185,59 +206,59 @@ function WorkoutSession({ programId, day }) {
     );
 
     setShowSuccess(true);
-
-    setTimeout(() => {
-      navigate("/", { replace: true });
-    }, 1200);
+    setTimeout(() => navigate("/", { replace: true }), 1200);
   };
 
-  /* ---------- بيانات المودال ---------- */
-  const editingExercise = editingSet
-    ? workoutExercises.find((e) => e.id === editingSet.exerciseId)
-    : null;
-
-  const editingSetData = editingSet
-    ? exerciseData[editingSet.exerciseId]?.sets[editingSet.setIndex]
-    : null;
-
-  /* ---------- دالة جلب آخر أداء ---------- */
+  // جلب آخر تمرينة من الهيستوري
   const getLastPerformance = (exerciseId) => {
-    const reversedWorkouts = [...workouts].reverse();
+    if (!workouts || workouts.length === 0) return null;
 
-    for (const w of reversedWorkouts) {
+    // ترتيب التمارين تنازلياً (الأحدث الأول)
+    const sortedWorkouts = [...workouts].sort((a, b) => b.id - a.id);
+
+    for (const w of sortedWorkouts) {
       const ex = w.exercises?.find((e) => e.id === exerciseId);
-      if (ex && ex.sets && ex.sets.length > 0) {
-        const bestSet = ex.sets.reduce(
-          (prev, current) =>
-            Number(prev.weight) > Number(current.weight) ? prev : current,
-          ex.sets[0],
-        );
+      if (ex) {
+        let lastSet = null;
 
-        let formattedDate = w.date;
-        if (w.date && w.date.includes("/")) {
-          const [d, m, y] = w.date.split("/");
-          const months = [
-            "JAN",
-            "FEB",
-            "MAR",
-            "APR",
-            "MAY",
-            "JUN",
-            "JUL",
-            "AUG",
-            "SEP",
-            "OCT",
-            "NOV",
-            "DEC",
-          ];
-          formattedDate = `${months[Number(m) - 1]} ${d}`;
+        if (Array.isArray(ex.sets) && ex.sets.length > 0) {
+          const validSets = ex.sets.filter(
+            (s) => Number(s.weight) > 0 || Number(s.reps) > 0,
+          );
+          if (validSets.length > 0) {
+            lastSet = validSets[validSets.length - 1];
+          }
+        } else if (typeof ex.sets === "number" && ex.sets > 0) {
+          lastSet = { weight: ex.weight || 0, reps: ex.reps || 0 };
         }
 
-        return {
-          weight: bestSet.weight || 0,
-          reps: bestSet.reps || 0,
-          date: formattedDate,
-        };
+        if (lastSet) {
+          let formattedDate = w.date || "";
+          if (formattedDate.includes("/")) {
+            const [datePart] = formattedDate.split(" ");
+            const [d, m] = datePart.split("/");
+            const months = [
+              "JAN",
+              "FEB",
+              "MAR",
+              "APR",
+              "MAY",
+              "JUN",
+              "JUL",
+              "AUG",
+              "SEP",
+              "OCT",
+              "NOV",
+              "DEC",
+            ];
+            formattedDate = `${months[Number(m) - 1]} ${d}`;
+          }
+          return {
+            weight: lastSet.weight || 0,
+            reps: lastSet.reps || 0,
+            date: formattedDate,
+          };
+        }
       }
     }
     return null;
@@ -245,7 +266,6 @@ function WorkoutSession({ programId, day }) {
 
   return (
     <div className="p-4 space-y-4">
-      {/* الهيدر + التايمر + زرار التحكم */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-green-400">Workout</h2>
@@ -253,16 +273,12 @@ function WorkoutSession({ programId, day }) {
             {decodedDay}
           </p>
         </div>
-
         <div className="flex items-center gap-2">
           <p
-            className={`font-mono text-lg ${
-              timerRunning ? "text-white" : "text-gray-500"
-            }`}
+            className={`font-mono text-lg ${timerRunning ? "text-white" : "text-gray-500"}`}
           >
             {minutes}:{sec.toString().padStart(2, "0")}
           </p>
-
           <button
             onClick={() => setTimerRunning((r) => !r)}
             className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition active:scale-90 ${
@@ -270,7 +286,6 @@ function WorkoutSession({ programId, day }) {
                 ? "bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30"
                 : "bg-green-500 text-white hover:bg-green-600 shadow-[0_0_15px_-2px_rgba(34,197,94,0.6)]"
             }`}
-            title={timerRunning ? "Stop Timer" : "Start Timer"}
           >
             {timerRunning ? (
               <svg
@@ -296,7 +311,6 @@ function WorkoutSession({ programId, day }) {
         </div>
       </div>
 
-      {/* نص توضيحي */}
       {!timerRunning && seconds === 0 && (
         <div className="text-center py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl">
           <p className="text-sm text-gray-400">
@@ -306,7 +320,6 @@ function WorkoutSession({ programId, day }) {
         </div>
       )}
 
-      {/* قائمة التمارين */}
       <div className="space-y-4">
         {workoutExercises.map((exercise) => {
           const sets = exerciseData[exercise.id]?.sets || [];
@@ -317,26 +330,13 @@ function WorkoutSession({ programId, day }) {
           return (
             <div
               key={exercise.id}
-              className={`overflow-hidden rounded-2xl bg-[#1a1a1a] border transition ${
-                isAllDone
-                  ? "border-green-500/50 shadow-[0_0_20px_-5px_rgba(34,197,94,0.3)]"
-                  : "border-gray-800"
-              }`}
+              className={`overflow-hidden rounded-2xl bg-[#1a1a1a] border transition ${isAllDone ? "border-green-500/50 shadow-[0_0_20px_-5px_rgba(34,197,94,0.3)]" : "border-gray-800"}`}
             >
               <div className="relative h-48 md:h-56 w-full bg-[#222] flex items-center justify-center">
-                <img
-                  src={exercise.image}
-                  alt={exercise.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.parentElement.innerHTML = `<div class="text-gray-500 text-center p-4"><span class="text-4xl">🏋️</span><p class="mt-2 text-sm">${exercise.name}</p></div>`;
-                  }}
-                />
+                <ExerciseImage src={exercise.image} alt={exercise.name} />
                 {isAllDone && (
                   <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold flex items-center gap-1">
-                    <span>✓</span>
-                    <span>Complete</span>
+                    <span>✓</span> <span>Complete</span>
                   </div>
                 )}
               </div>
@@ -353,7 +353,6 @@ function WorkoutSession({ programId, day }) {
 
                 {(() => {
                   const lastPerf = getLastPerformance(exercise.id);
-
                   if (!lastPerf) {
                     return (
                       <div className="py-2">
@@ -367,55 +366,51 @@ function WorkoutSession({ programId, day }) {
                     );
                   }
 
+                  const hasWeight = Number(lastPerf.weight) > 0;
+
                   return (
                     <div>
-                      <div>
-                        <h2 className="text-[#6B7271] font-semibold">
-                          Last Workout
-                        </h2>
-                        <div className="mt-3 flex justify-between items-center bg-[#222]/30 rounded-xl p-2">
-                          {/* ✅ تعديل عرض الوزن */}
-                          <div className="flex flex-1 justify-center gap-2 items-center">
-                            <Dumbbell
-                              className="w-8 h-8 md:w-10 md:h-10"
-                              color="#6B7271"
-                            />
-                            {Number(lastPerf.weight) > 0 ? (
+                      <h2 className="text-[#6B7271] font-semibold">
+                        Last Workout
+                      </h2>
+                      <div className="mt-3 flex justify-between items-center bg-[#222]/30 rounded-xl p-2">
+                        {hasWeight ? (
+                          <>
+                            <div className="flex flex-1 justify-center gap-2 items-center">
+                              <Dumbbell
+                                className="w-8 h-8 md:w-10 md:h-10"
+                                color="#6B7271"
+                              />
                               <span className="text-white font-bold text-2xl md:text-3xl">
                                 {lastPerf.weight}{" "}
                                 <span className="text-sm text-gray-400">
                                   kg
                                 </span>
                               </span>
-                            ) : (
-                              <span className="text-gray-500 font-medium text-sm md:text-base">
-                                Not recorded
-                              </span>
-                            )}
-                          </div>
+                            </div>
 
-                          <div className="h-8 w-[2px] bg-gray-700"></div>
+                            <div className="h-8 w-[2px] bg-gray-700"></div>
 
-                          {/* ✅ تعديل عرض العدات */}
-                          <div className="flex flex-1 justify-center gap-2 items-center">
-                            <RefreshCcwDot
-                              className="w-8 h-8 md:w-10 md:h-10"
-                              color="#6B7271"
-                            />
-                            {Number(lastPerf.reps) > 0 ? (
+                            <div className="flex flex-1 justify-center gap-2 items-center">
+                              <RefreshCcwDot
+                                className="w-8 h-8 md:w-10 md:h-10"
+                                color="#6B7271"
+                              />
                               <span className="text-white font-bold text-2xl md:text-3xl">
                                 {lastPerf.reps}{" "}
                                 <span className="text-sm text-gray-400">
                                   reps
                                 </span>
                               </span>
-                            ) : (
-                              <span className="text-gray-500 font-medium text-sm md:text-base">
-                                Not recorded
-                              </span>
-                            )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex w-full justify-center items-center py-2">
+                            <span className="text-gray-500 font-medium text-sm md:text-base">
+                              Weight Not Recorded
+                            </span>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 mt-2">
@@ -451,14 +446,10 @@ function WorkoutSession({ programId, day }) {
                             setIndex: i,
                           })
                         }
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition ${
-                          set.done
-                            ? "text-green-400 hover:bg-green-500/10"
-                            : "text-gray-500 hover:bg-[#252525] hover:text-gray-300"
-                        }`}
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition ${set.done ? "text-green-400 hover:bg-green-500/10" : "text-gray-500 hover:bg-[#252525] hover:text-gray-300"}`}
                       >
-                        {set.weight || set.reps
-                          ? `${set.weight}×${set.reps}`
+                        {Number(set.weight) > 0 || Number(set.reps) > 0
+                          ? `${Number(set.weight) || 0}×${Number(set.reps) || 0}`
                           : "— × —"}
                       </button>
                     </div>
@@ -471,7 +462,6 @@ function WorkoutSession({ programId, day }) {
                     >
                       +
                     </button>
-
                     {totalSets > 1 && (
                       <button
                         onClick={() => removeSet(exercise.id, totalSets - 1)}
@@ -517,125 +507,139 @@ function WorkoutSession({ programId, day }) {
         </div>
       )}
 
-      {/* مودال تعديل المجموعة */}
-      {editingSet && editingSetData && editingExercise && (
-        <div
-          onClick={() => setEditingSet(null)}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center z-50"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full md:max-w-md bg-[#151515] border-t md:border border-gray-800 md:rounded-2xl rounded-t-3xl"
+      {editingSet && (
+        <EditSetModal
+          key={`${editingSet.exerciseId}-${editingSet.setIndex}`}
+          editingSet={editingSet}
+          exerciseData={exerciseData}
+          exercises={workoutExercises}
+          onClose={() => setEditingSet(null)}
+          updateSetFromModal={updateSetFromModal}
+          toggleSetDone={toggleSetDone}
+          removeSet={removeSet}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   المودال (بيستخدم useRef عشان يمنع أي هنج)
+   ============================================================ */
+function EditSetModal({
+  editingSet,
+  exerciseData,
+  exercises,
+  onClose,
+  updateSetFromModal,
+  toggleSetDone,
+  removeSet,
+}) {
+  const exercise = exercises.find((e) => e.id === editingSet.exerciseId);
+  const data = exerciseData[editingSet.exerciseId]?.sets[editingSet.setIndex];
+
+  const weightRef = useRef(null);
+  const repsRef = useRef(null);
+
+  useEffect(() => {
+    if (weightRef.current) weightRef.current.focus();
+  }, []);
+
+  if (!data || !exercise) return null;
+
+  const handleSaveChanges = () => {
+    const w = weightRef.current ? weightRef.current.value : "";
+    const r = repsRef.current ? repsRef.current.value : "";
+    updateSetFromModal(editingSet.exerciseId, editingSet.setIndex, w, r);
+    onClose();
+  };
+
+  return (
+    <div
+      onClick={handleSaveChanges}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center z-50"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full md:max-w-md bg-[#151515] border-t md:border border-gray-800 md:rounded-2xl rounded-t-3xl"
+      >
+        <div className="flex items-start justify-between p-5 border-b border-gray-800">
+          <div className="flex-1 pr-3">
+            <p className="text-xs text-gray-500 mb-1">{exercise.name}</p>
+            <h2 className="text-lg font-bold text-green-400">
+              Set {editingSet.setIndex + 1}
+            </h2>
+          </div>
+          <button
+            onClick={handleSaveChanges}
+            className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center text-gray-400 hover:bg-[#252525] hover:text-white transition"
           >
-            <div className="flex items-start justify-between p-5 border-b border-gray-800">
-              <div className="flex-1 pr-3">
-                <p className="text-xs text-gray-500 mb-1">
-                  {editingExercise.name}
-                </p>
-                <h2 className="text-lg font-bold text-green-400">
-                  Set {editingSet.setIndex + 1}
-                </h2>
-              </div>
-              <button
-                onClick={() => setEditingSet(null)}
-                className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center text-gray-400 hover:bg-[#252525] hover:text-white transition"
-              >
-                ✕
-              </button>
+            ✕
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
+                Weight (kg)
+              </label>
+              <input
+                ref={weightRef}
+                type="text"
+                inputMode="decimal"
+                defaultValue={data?.weight || ""}
+                placeholder="0"
+                className="w-full rounded-lg border border-gray-700 bg-[#0a0a0a] px-3 py-3 text-center text-white text-lg font-semibold focus:border-green-500 focus:outline-none"
+              />
             </div>
-
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
-                    Weight (kg)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={editingSetData.weight}
-                    onChange={(e) =>
-                      updateSetField(
-                        editingSet.exerciseId,
-                        editingSet.setIndex,
-                        "weight",
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-700 bg-[#0a0a0a] px-3 py-3 text-center text-white text-lg font-semibold focus:border-green-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
-                    Reps
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={editingSetData.reps}
-                    onChange={(e) =>
-                      updateSetField(
-                        editingSet.exerciseId,
-                        editingSet.setIndex,
-                        "reps",
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-700 bg-[#0a0a0a] px-3 py-3 text-center text-white text-lg font-semibold focus:border-green-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <p className="text-center text-xs text-gray-500">
-                Set Volume:{" "}
-                <span className="text-green-400 font-semibold">
-                  {(Number(editingSetData.weight) || 0) *
-                    (Number(editingSetData.reps) || 0)}{" "}
-                  kg
-                </span>
-              </p>
-            </div>
-
-            <div className="p-5 pt-0 space-y-3">
-              <button
-                onClick={() => {
-                  toggleSetDone(editingSet.exerciseId, editingSet.setIndex);
-                  setEditingSet(null);
-                }}
-                className={`w-full py-3.5 rounded-xl font-bold transition ${
-                  editingSetData.done
-                    ? "bg-[#1a1a1a] border border-gray-700 text-gray-300 hover:bg-[#252525]"
-                    : "bg-green-500 hover:bg-green-600 text-white"
-                }`}
-              >
-                {editingSetData.done ? "↺ Undo Set" : "✓ Mark as Done"}
-              </button>
-
-              <div className="flex gap-3">
-                {exerciseData[editingSet.exerciseId]?.sets.length > 1 && (
-                  <button
-                    onClick={() => {
-                      removeSet(editingSet.exerciseId, editingSet.setIndex);
-                      setEditingSet(null);
-                    }}
-                    className="flex-1 py-3 rounded-xl border border-red-500/30 text-red-400 font-semibold hover:bg-red-500/10 transition text-sm"
-                  >
-                    Delete Set
-                  </button>
-                )}
-
-                <button
-                  onClick={() => setEditingSet(null)}
-                  className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-300 font-semibold hover:bg-[#252525] transition text-sm"
-                >
-                  Done
-                </button>
-              </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
+                Reps
+              </label>
+              <input
+                ref={repsRef}
+                type="text"
+                inputMode="numeric"
+                defaultValue={data?.reps || ""}
+                placeholder="0"
+                className="w-full rounded-lg border border-gray-700 bg-[#0a0a0a] px-3 py-3 text-center text-white text-lg font-semibold focus:border-green-500 focus:outline-none"
+              />
             </div>
           </div>
         </div>
-      )}
+
+        <div className="p-5 pt-0 space-y-3">
+          <button
+            onClick={() => {
+              toggleSetDone(editingSet.exerciseId, editingSet.setIndex);
+              handleSaveChanges();
+            }}
+            className={`w-full py-3.5 rounded-xl font-bold transition ${data.done ? "bg-[#1a1a1a] border border-gray-700 text-gray-300 hover:bg-[#252525]" : "bg-green-500 hover:bg-green-600 text-white"}`}
+          >
+            {data.done ? "↺ Undo Set" : "✓ Mark as Done"}
+          </button>
+          <div className="flex gap-3">
+            {exerciseData[editingSet.exerciseId]?.sets.length > 1 && (
+              <button
+                onClick={() => {
+                  removeSet(editingSet.exerciseId, editingSet.setIndex);
+                  onClose();
+                }}
+                className="flex-1 py-3 rounded-xl border border-red-500/30 text-red-400 font-semibold hover:bg-red-500/10 transition text-sm"
+              >
+                Delete Set
+              </button>
+            )}
+            <button
+              onClick={handleSaveChanges}
+              className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-300 font-semibold hover:bg-[#252525] transition text-sm"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

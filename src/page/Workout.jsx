@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { programs } from "../data/programs";
 import { exercises } from "../data/exercises";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { addWorkout } from "../features/history";
+import { Dumbbell, RefreshCcwDot } from "lucide-react";
 
 export default function Workout() {
   const { program: programId, day } = useParams();
@@ -45,6 +46,7 @@ function WorkoutSession({ programId, day }) {
   const dispatch = useDispatch();
   const decodedDay = decodeURIComponent(day);
   const program = programs[programId];
+  const workouts = useSelector((state) => state.history.workouts);
 
   // قائمة التمارين (بدون تكرار)
   const workoutExercises = useMemo(() => {
@@ -65,7 +67,7 @@ function WorkoutSession({ programId, day }) {
 
   /* ---------- كل الـ Hooks في الأول ---------- */
   const [seconds, setSeconds] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false); // ✅ التايمر واقف افتراضي
+  const [timerRunning, setTimerRunning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [exerciseData, setExerciseData] = useState({});
   const [editingSet, setEditingSet] = useState(null);
@@ -87,9 +89,9 @@ function WorkoutSession({ programId, day }) {
     setTimerRunning(false);
     setShowSuccess(false);
     setEditingSet(null);
-  }, [programId, decodedDay, workoutExercises.length]);
+  }, [programId, decodedDay, workoutExercises]);
 
-  // ✅ التايمر بيشتغل بس لما timerRunning = true
+  // التايمر
   useEffect(() => {
     if (!timerRunning) return;
     const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -99,7 +101,7 @@ function WorkoutSession({ programId, day }) {
   if (!program || !program.days?.[decodedDay]) {
     return (
       <div className="p-4">
-        <p className="text-red-500">⚠️ البرنامج أو اليوم غير موجود</p>
+        <p className="text-red-500">⚠️ Program or day not found</p>
       </div>
     );
   }
@@ -184,7 +186,6 @@ function WorkoutSession({ programId, day }) {
 
     setShowSuccess(true);
 
-    // ✅ نرجع للصفحة الرئيسية
     setTimeout(() => {
       navigate("/", { replace: true });
     }, 1200);
@@ -199,6 +200,49 @@ function WorkoutSession({ programId, day }) {
     ? exerciseData[editingSet.exerciseId]?.sets[editingSet.setIndex]
     : null;
 
+  /* ---------- دالة جلب آخر أداء ---------- */
+  const getLastPerformance = (exerciseId) => {
+    const reversedWorkouts = [...workouts].reverse();
+
+    for (const w of reversedWorkouts) {
+      const ex = w.exercises?.find((e) => e.id === exerciseId);
+      if (ex && ex.sets && ex.sets.length > 0) {
+        const bestSet = ex.sets.reduce(
+          (prev, current) =>
+            Number(prev.weight) > Number(current.weight) ? prev : current,
+          ex.sets[0],
+        );
+
+        let formattedDate = w.date;
+        if (w.date && w.date.includes("/")) {
+          const [d, m, y] = w.date.split("/");
+          const months = [
+            "JAN",
+            "FEB",
+            "MAR",
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG",
+            "SEP",
+            "OCT",
+            "NOV",
+            "DEC",
+          ];
+          formattedDate = `${months[Number(m) - 1]} ${d}`;
+        }
+
+        return {
+          weight: bestSet.weight || 0,
+          reps: bestSet.reps || 0,
+          date: formattedDate,
+        };
+      }
+    }
+    return null;
+  };
+
   return (
     <div className="p-4 space-y-4">
       {/* الهيدر + التايمر + زرار التحكم */}
@@ -210,7 +254,6 @@ function WorkoutSession({ programId, day }) {
           </p>
         </div>
 
-        {/* التايمر */}
         <div className="flex items-center gap-2">
           <p
             className={`font-mono text-lg ${
@@ -220,7 +263,6 @@ function WorkoutSession({ programId, day }) {
             {minutes}:{sec.toString().padStart(2, "0")}
           </p>
 
-          {/* ✅ زرار ابدأ/إيقاف */}
           <button
             onClick={() => setTimerRunning((r) => !r)}
             className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition active:scale-90 ${
@@ -228,10 +270,9 @@ function WorkoutSession({ programId, day }) {
                 ? "bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30"
                 : "bg-green-500 text-white hover:bg-green-600 shadow-[0_0_15px_-2px_rgba(34,197,94,0.6)]"
             }`}
-            title={timerRunning ? "إيقاف المؤقت" : "ابدأ المؤقت"}
+            title={timerRunning ? "Stop Timer" : "Start Timer"}
           >
             {timerRunning ? (
-              // أيقونة إيقاف
               <svg
                 width="14"
                 height="14"
@@ -242,7 +283,6 @@ function WorkoutSession({ programId, day }) {
                 <rect x="14" y="5" width="4" height="14" rx="1" />
               </svg>
             ) : (
-              // أيقونة تشغيل
               <svg
                 width="14"
                 height="14"
@@ -256,7 +296,7 @@ function WorkoutSession({ programId, day }) {
         </div>
       </div>
 
-      {/* نص توضيحي تحت الهيدر */}
+      {/* نص توضيحي */}
       {!timerRunning && seconds === 0 && (
         <div className="text-center py-3 bg-[#1a1a1a] border border-gray-800 rounded-xl">
           <p className="text-sm text-gray-400">
@@ -293,11 +333,10 @@ function WorkoutSession({ programId, day }) {
                     e.target.parentElement.innerHTML = `<div class="text-gray-500 text-center p-4"><span class="text-4xl">🏋️</span><p class="mt-2 text-sm">${exercise.name}</p></div>`;
                   }}
                 />
-
                 {isAllDone && (
                   <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-green-500 text-white text-xs font-bold flex items-center gap-1">
                     <span>✓</span>
-                    <span>مكتمل</span>
+                    <span>Complete</span>
                   </div>
                 )}
               </div>
@@ -311,6 +350,85 @@ function WorkoutSession({ programId, day }) {
                     {completedCount} / {totalSets}
                   </p>
                 </div>
+
+                {(() => {
+                  const lastPerf = getLastPerformance(exercise.id);
+
+                  if (!lastPerf) {
+                    return (
+                      <div className="py-2">
+                        <h2 className="text-[#6B7271] font-semibold">
+                          Last Workout
+                        </h2>
+                        <p className="text-gray-500 text-sm mt-1">
+                          No previous data
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      <div>
+                        <h2 className="text-[#6B7271] font-semibold">
+                          Last Workout
+                        </h2>
+                        <div className="mt-3 flex justify-between items-center bg-[#222]/30 rounded-xl p-2">
+                          {/* ✅ تعديل عرض الوزن */}
+                          <div className="flex flex-1 justify-center gap-2 items-center">
+                            <Dumbbell
+                              className="w-8 h-8 md:w-10 md:h-10"
+                              color="#6B7271"
+                            />
+                            {Number(lastPerf.weight) > 0 ? (
+                              <span className="text-white font-bold text-2xl md:text-3xl">
+                                {lastPerf.weight}{" "}
+                                <span className="text-sm text-gray-400">
+                                  kg
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 font-medium text-sm md:text-base">
+                                Not recorded
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="h-8 w-[2px] bg-gray-700"></div>
+
+                          {/* ✅ تعديل عرض العدات */}
+                          <div className="flex flex-1 justify-center gap-2 items-center">
+                            <RefreshCcwDot
+                              className="w-8 h-8 md:w-10 md:h-10"
+                              color="#6B7271"
+                            />
+                            {Number(lastPerf.reps) > 0 ? (
+                              <span className="text-white font-bold text-2xl md:text-3xl">
+                                {lastPerf.reps}{" "}
+                                <span className="text-sm text-gray-400">
+                                  reps
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 font-medium text-sm md:text-base">
+                                Not recorded
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <h2 className="text-[#6B7271] font-semibold text-sm">
+                          Last Time .
+                        </h2>
+                        <span className="text-[#6B7271] text-xs font-mono">
+                          {lastPerf.date}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-start flex-wrap gap-3">
                   {sets.map((set, i) => (
@@ -381,7 +499,6 @@ function WorkoutSession({ programId, day }) {
         })}
       </div>
 
-      {/* زر الحفظ */}
       <button
         onClick={handleSave}
         disabled={showSuccess}
@@ -391,7 +508,7 @@ function WorkoutSession({ programId, day }) {
             : "bg-green-500 text-green-950 hover:bg-green-600"
         }`}
       >
-        {showSuccess ? "✓ تم الحفظ - العودة للرئيسية..." : "Save Workout"}
+        {showSuccess ? "✓ Saved — Back to Home..." : "Save Workout"}
       </button>
 
       {showSuccess && (
@@ -416,7 +533,7 @@ function WorkoutSession({ programId, day }) {
                   {editingExercise.name}
                 </p>
                 <h2 className="text-lg font-bold text-green-400">
-                  المجموعة {editingSet.setIndex + 1}
+                  Set {editingSet.setIndex + 1}
                 </h2>
               </div>
               <button
@@ -431,7 +548,7 @@ function WorkoutSession({ programId, day }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
-                    الوزن (kg)
+                    Weight (kg)
                   </label>
                   <input
                     type="number"
@@ -451,7 +568,7 @@ function WorkoutSession({ programId, day }) {
 
                 <div>
                   <label className="mb-1.5 block text-xs text-gray-500 uppercase tracking-wide">
-                    العدات
+                    Reps
                   </label>
                   <input
                     type="number"
@@ -471,7 +588,7 @@ function WorkoutSession({ programId, day }) {
               </div>
 
               <p className="text-center text-xs text-gray-500">
-                حجم المجموعة:{" "}
+                Set Volume:{" "}
                 <span className="text-green-400 font-semibold">
                   {(Number(editingSetData.weight) || 0) *
                     (Number(editingSetData.reps) || 0)}{" "}
@@ -492,7 +609,7 @@ function WorkoutSession({ programId, day }) {
                     : "bg-green-500 hover:bg-green-600 text-white"
                 }`}
               >
-                {editingSetData.done ? "↺ إلغاء التحديد" : "✓ تم أداء المجموعة"}
+                {editingSetData.done ? "↺ Undo Set" : "✓ Mark as Done"}
               </button>
 
               <div className="flex gap-3">
@@ -504,7 +621,7 @@ function WorkoutSession({ programId, day }) {
                     }}
                     className="flex-1 py-3 rounded-xl border border-red-500/30 text-red-400 font-semibold hover:bg-red-500/10 transition text-sm"
                   >
-                    حذف المجموعة
+                    Delete Set
                   </button>
                 )}
 
@@ -512,7 +629,7 @@ function WorkoutSession({ programId, day }) {
                   onClick={() => setEditingSet(null)}
                   className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-300 font-semibold hover:bg-[#252525] transition text-sm"
                 >
-                  تم
+                  Done
                 </button>
               </div>
             </div>
